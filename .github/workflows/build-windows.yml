@@ -27,7 +27,9 @@ jobs:
       - name: Compile
         shell: msys2 {0}
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSNESRECOMP_SDL_BACKEND=SDL2
+          # O Clang do MSYS2 gera 3 funcoes internas do Windows (NtCurrentTeb etc.) em
+          # mais de um arquivo; sao identicas, entao o linker pode aceitar as copias.
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSNESRECOMP_SDL_BACKEND=SDL2 -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-multiple-definition
           ninja -C build
 
       - name: Assemble the folder

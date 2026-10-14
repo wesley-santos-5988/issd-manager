@@ -1,0 +1,48 @@
+name: Build Windows
+
+# Compila o jogo para Windows na nuvem do GitHub e deixa um .zip para baixar.
+# Como usar: aba "Actions" > "Build Windows" > "Run workflow". Quando terminar,
+# abra a execução e baixe o arquivo em "Artifacts".
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          update: true
+          install: >-
+            mingw-w64-clang-x86_64-toolchain
+            mingw-w64-clang-x86_64-cmake
+            mingw-w64-clang-x86_64-ninja
+            mingw-w64-clang-x86_64-SDL2
+
+      - name: Compile
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSNESRECOMP_SDL_BACKEND=SDL2
+          ninja -C build
+
+      - name: Assemble the folder
+        shell: msys2 {0}
+        run: |
+          out="dist/ISSDNative-manager-windows-x64"
+          mkdir -p "$out"
+          cp build/ISSDNative.exe "$out/"
+          cp recomp/aot_boot_deny.txt "$out/"
+          cp -r mods docs README.md CHANGELOG.md VERSION "$out/" 2>/dev/null || true
+          # Copy every DLL the program needs from the MSYS2 folder.
+          ldd build/ISSDNative.exe | awk '/clang64/ {print $3}' | while read dll; do cp "$dll" "$out/"; done
+          ls "$out"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ISSDNative-manager-windows-x64
+          path: dist/ISSDNative-manager-windows-x64

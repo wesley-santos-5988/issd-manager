@@ -2,6 +2,7 @@
 #include "issd_menu.h"
 #include "issd_controls.h"
 #include "issd_match_menu.h"
+#include "issd_manager_menu.h"
 #include "issd_match.h"
 #include "issd_password_ui.h"
 #include "issd_config.h"
@@ -312,11 +313,13 @@ void issd_menu_init(void) {
     g_overlay_menu.scroll = 0;
 }
 
+static bool s_manager_from_main;
+
 void issd_menu_toggle(void) {
     issd_controls_end_capture();
     if (s_reset_input) s_reset_input();
     g_overlay_menu.is_open = !g_overlay_menu.is_open;
-    if (!g_overlay_menu.is_open) g_overlay_menu.page = ISSD_MENU_PAGE_MAIN;
+    if (!g_overlay_menu.is_open) { g_overlay_menu.page = ISSD_MENU_PAGE_MAIN; s_manager_from_main = false; }
     if (g_overlay_menu.is_open) {
         issd_menu_refresh_continue();
         issd_touch_set_pad_visible(true);
@@ -355,6 +358,7 @@ void issd_menu_close(void) {
     issd_controls_end_capture();
     if (s_reset_input) s_reset_input();
     g_overlay_menu.is_open = false;
+    s_manager_from_main = false;
     s_legacy_confirm_slot = -2;
 }
 
@@ -480,10 +484,31 @@ static void mods_step(int direction) {
     if (g_overlay_menu.scroll < 0) g_overlay_menu.scroll = 0;
 }
 
+/* s_manager_from_main (above) is true while Manager Mode was opened from the
+ * game's own main menu (the Scenario button) rather than the pause overlay. */
+void issd_menu_open_manager(void) {
+    issd_menu_open();
+    s_manager_from_main = true;
+    issd_manager_menu_open();
+}
+
+void issd_menu_return_from_manager(void) {
+    if (s_manager_from_main) {
+        s_manager_from_main = false;
+        g_overlay_menu.page = ISSD_MENU_PAGE_MAIN;
+        issd_menu_close();
+        return;
+    }
+    g_overlay_menu.page = ISSD_MENU_PAGE_GAMEPLAY;
+    g_overlay_menu.current_item = 4;
+    g_overlay_menu.scroll = 0;
+}
+
 static void gameplay_select(void) {
     int row = g_overlay_menu.current_item;
     if (row == 2) { issd_match_menu_open(); return; }
-    if (row == 4) {
+    if (row == 4) { issd_manager_menu_open(); return; }
+    if (row == 5) {
         g_overlay_menu.page = ISSD_MENU_PAGE_MAIN;
         g_overlay_menu.current_item = MENU_ITEM_GAMEPLAY;
         return;
@@ -502,10 +527,11 @@ bool issd_menu_navigate_up(void) {
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GRAPHICS_PREVIEW) return true;
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GRAPHICS) { g_overlay_menu.current_item = (g_overlay_menu.current_item + -1 + GRAPHICS_ROWS) % GRAPHICS_ROWS; menu_keep_visible(); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_MATCH) { issd_match_menu_step(-1); return true; }
+    if (g_overlay_menu.page == ISSD_MENU_PAGE_MANAGER) { issd_manager_menu_step(-1); return true; }
     if (issd_controls_active()) { issd_controls_step(-1); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_PASSWORD) { issd_password_ui_up(); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GAMEPLAY) {
-        g_overlay_menu.current_item = (g_overlay_menu.current_item + 4) % 5; return true;
+        g_overlay_menu.current_item = (g_overlay_menu.current_item + 5) % 6; return true;
     }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_MODS) { mods_step(-1); return true; }
     g_overlay_menu.current_item = main_item((main_row(g_overlay_menu.current_item) - 1 + MENU_TOTAL_ITEMS) % MENU_TOTAL_ITEMS);
@@ -519,10 +545,11 @@ bool issd_menu_navigate_down(void) {
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GRAPHICS_PREVIEW) return true;
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GRAPHICS) { g_overlay_menu.current_item = (g_overlay_menu.current_item + 1 + GRAPHICS_ROWS) % GRAPHICS_ROWS; menu_keep_visible(); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_MATCH) { issd_match_menu_step(1); return true; }
+    if (g_overlay_menu.page == ISSD_MENU_PAGE_MANAGER) { issd_manager_menu_step(1); return true; }
     if (issd_controls_active()) { issd_controls_step(1); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_PASSWORD) { issd_password_ui_down(); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GAMEPLAY) {
-        g_overlay_menu.current_item = (g_overlay_menu.current_item + 1) % 5; return true;
+        g_overlay_menu.current_item = (g_overlay_menu.current_item + 1) % 6; return true;
     }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_MODS) { mods_step(1); return true; }
     g_overlay_menu.current_item = main_item((main_row(g_overlay_menu.current_item) + 1) % MENU_TOTAL_ITEMS);
@@ -540,6 +567,7 @@ bool issd_menu_navigate_left(void) {
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GRAPHICS) { graphics_adjust(-1); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_MAIN && g_overlay_menu.current_item == MENU_ITEM_GRAPHICS) { graphics_open(); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_MATCH) { issd_match_menu_adjust(-1); return true; }
+    if (g_overlay_menu.page == ISSD_MENU_PAGE_MANAGER) { issd_manager_menu_adjust(-1); return true; }
     if (issd_controls_active()) { issd_controls_adjust(-1); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_PASSWORD) { issd_password_ui_left(); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GAMEPLAY) { gameplay_select(); return true; }
@@ -621,6 +649,7 @@ bool issd_menu_navigate_right(void) {
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GRAPHICS) { graphics_adjust(1); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_MAIN && g_overlay_menu.current_item == MENU_ITEM_GRAPHICS) { graphics_open(); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_MATCH) { issd_match_menu_adjust(1); return true; }
+    if (g_overlay_menu.page == ISSD_MENU_PAGE_MANAGER) { issd_manager_menu_adjust(1); return true; }
     if (issd_controls_active()) { issd_controls_adjust(1); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_PASSWORD) { issd_password_ui_right(); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GAMEPLAY) { gameplay_select(); return true; }
@@ -702,6 +731,7 @@ bool issd_menu_confirm(void) {
         ((g_overlay_menu.current_item >= 3 && g_overlay_menu.current_item <= 8) || g_overlay_menu.current_item == MENU_ITEM_GRAPHICS))) s_prepare_save_context();
     if (!g_overlay_menu.is_open) return false;
     if (g_overlay_menu.page == ISSD_MENU_PAGE_MATCH) { issd_match_menu_confirm(); return true; }
+    if (g_overlay_menu.page == ISSD_MENU_PAGE_MANAGER) { issd_manager_menu_confirm(); return true; }
     if (issd_controls_active()) { issd_controls_confirm(); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GAMEPLAY) { gameplay_select(); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_PASSWORD) {
@@ -842,6 +872,7 @@ bool issd_menu_cancel(void) {
         g_overlay_menu.page = ISSD_MENU_PAGE_MAIN; g_overlay_menu.current_item = MENU_ITEM_GRAPHICS; menu_keep_visible(); return true;
     }
     if (g_overlay_menu.is_open && g_overlay_menu.page == ISSD_MENU_PAGE_MATCH) { issd_match_menu_cancel(); return true; }
+    if (g_overlay_menu.is_open && g_overlay_menu.page == ISSD_MENU_PAGE_MANAGER) { issd_manager_menu_cancel(); return true; }
     if (!g_overlay_menu.is_open) return false;
     if (issd_controls_active()) { issd_controls_cancel(); return true; }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GAMEPLAY) {
@@ -889,6 +920,9 @@ bool issd_menu_handle_click(int fb_x, int fb_y, int width, int height) {
     if (g_overlay_menu.page == ISSD_MENU_PAGE_MATCH) {
         issd_match_menu_click(fb_x, fb_y, box_x, box_y); return true;
     }
+    if (g_overlay_menu.page == ISSD_MENU_PAGE_MANAGER) {
+        issd_manager_menu_click(fb_x, fb_y, box_x, box_y); return true;
+    }
     if (issd_controls_active()) {
         int count = g_overlay_menu.page == ISSD_MENU_PAGE_CONTROLS ? 20 : g_overlay_menu.page == ISSD_MENU_PAGE_KEYBOARD ? 14 : 7;
         int row = g_overlay_menu.scroll + (fb_y - box_y - 22) / 12;
@@ -900,9 +934,9 @@ bool issd_menu_handle_click(int fb_x, int fb_y, int width, int height) {
         return true;
     }
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GAMEPLAY) {
-        for (int row = 0; row < 5; row++) {
-            int y = box_y + 28 + row * 24;
-            if (fb_y >= y && fb_y < y + 24) {
+        for (int row = 0; row < 6; row++) {
+            int y = box_y + 28 + row * 20;
+            if (fb_y >= y && fb_y < y + 20) {
                 g_overlay_menu.current_item = row; gameplay_select(); return true;
             }
         }
@@ -1234,6 +1268,9 @@ void issd_menu_render(uint32_t *fb, int width, int height) {
     if (g_overlay_menu.page == ISSD_MENU_PAGE_MATCH) {
         issd_match_menu_render(fb, width, height, box_x, box_y, DrawString); return;
     }
+    if (g_overlay_menu.page == ISSD_MENU_PAGE_MANAGER) {
+        issd_manager_menu_render(fb, width, height, box_x, box_y, DrawString); return;
+    }
     if (issd_controls_active()) {
         issd_controls_render(fb, width, height, box_x, box_y, DrawString);
         return;
@@ -1241,21 +1278,26 @@ void issd_menu_render(uint32_t *fb, int width, int height) {
 
     if (g_overlay_menu.page == ISSD_MENU_PAGE_GAMEPLAY) {
         DrawString(fb, width, height, box_x + 48, box_y + 4, "GAMEPLAY TWEAKS", 0xFFFFD700);
-        char rows[5][29];
+        char rows[6][29];
+        char manager_state[12];   /* longest is "season over" */
+        issd_manager_menu_summary(manager_state, sizeof manager_state);
         snprintf(rows[0], sizeof rows[0], "Goalkeeper AI: <%s>", g_issd_config.gameplay_goalkeeper_ai ? "ON" : "OFF");
         snprintf(rows[1], sizeof rows[1], "Player AI:     <%s>", g_issd_config.gameplay_player_ai ? "ON" : "OFF");
         snprintf(rows[2], sizeof rows[2], "Match Shortcuts / Presets...");
         snprintf(rows[3], sizeof rows[3], "Original Bug Fixes: <%s>", g_issd_config.gameplay_bug_fixes ? "ON" : "OFF");
-        snprintf(rows[4], sizeof rows[4], "Back");
-        for (int row = 0; row < 5; row++) {
-            int y = box_y + 28 + row * 24;
+        snprintf(rows[4], sizeof rows[4], "Manager Mode: %s", manager_state);
+        snprintf(rows[5], sizeof rows[5], "Back");
+        for (int row = 0; row < 6; row++) {
+            int y = box_y + 28 + row * 20;
             uint32_t color = row == g_overlay_menu.current_item ? 0xFF00FF66 : 0xFFE0E0E0;
             if (row == g_overlay_menu.current_item) DrawChar(fb, width, height, box_x + 4, y, '>', color);
             DrawString(fb, width, height, box_x + 14, y, rows[row], color);
         }
         const char *help = g_overlay_menu.current_item == 0 ? "Tracks angled shots sooner" :
                            g_overlay_menu.current_item == 1 ? "Formation and substitute AI" :
-                           g_overlay_menu.current_item == 3 ? "Fix original game exploits" : "Rematch, drill and favorites";
+                           g_overlay_menu.current_item == 3 ? "Fix original game exploits" :
+                           g_overlay_menu.current_item == 4 ? "League, table and transfers" :
+                           g_overlay_menu.current_item == 5 ? "Back to the main menu" : "Rematch, drill and favorites";
         DrawString(fb, width, height, box_x + 8, box_y + 148, help, 0xFFB0B0B0);
         DrawString(fb, width, height, box_x + 8, box_y + 160, "Combine any tweaks freely", 0xFFB0B0B0);
         DrawString(fb, width, height, box_x + 8, box_y + 172, "Saves need matching tweaks", 0xFFB0B0B0);
@@ -2031,6 +2073,66 @@ static bool on_tonights_game_screen(void) {
             g_ram[0x18] == 116 && g_ram[0x1A] == 52);
 }
 
+
+/* The original "SCENARIO" button is cartridge artwork. Manager Mode takes its
+ * place, so while the game's main menu is showing the label is painted over
+ * with "MANAGER" in the button's own colours. This draws on the frame only;
+ * the cartridge's graphics are untouched. */
+void issd_menu_render_main_menu_label(uint32_t *fb, int width, int height, int margin) {
+    enum { X0 = 136, X1 = 248, Y0 = 40, Y1 = 63, MW = 112, MH = 24 };
+    static const char word[] = "MANAGER";
+    if (!fb || !issd_match_at_main_menu()) return;
+    if (margin < 0 || width < margin + X1 || height < Y1) return;
+
+    for (int y = Y0; y < Y1; y++)
+        for (int x = X0; x < X1; x++) {
+            /* The faint ball every button carries, at the right-hand end. */
+            const int dx = x - 234, dy = y - 51, d2 = dx * dx + dy * dy;
+            uint32_t color = 0xFF392984u;
+            if (d2 <= 144) color = d2 >= 121 || d2 <= 9 ? 0xFF18184Au : 0xFF312173u;
+            fb[(size_t)y * width + margin + x] = color;
+        }
+
+    /* Letters twice the size of the overlay font, laid out in a mask. */
+    unsigned char ink[MH][MW];
+    memset(ink, 0, sizeof ink);
+    const int text_x = 8, text_y = 1;
+    for (int i = 0; word[i]; i++) {
+        const uint8_t *glyph = g_issd_font8x8[word[i] - 32];
+        for (int row = 0; row < 8; row++)
+            for (int col = 0; col < 8; col++)
+                if (glyph[row] & (0x80 >> col))
+                    for (int dy = 0; dy < 2; dy++)
+                        for (int dx = 0; dx < 2; dx++) {
+                            int px = text_x + i * 14 + col * 2 + dx, py = text_y + row * 2 + dy;
+                            if (px < MW && py < MH) ink[py][px] = 1;
+                        }
+    }
+    unsigned char edge[MH][MW], shade[MH][MW];
+    memset(edge, 0, sizeof edge);
+    memset(shade, 0, sizeof shade);
+    for (int y = 0; y < MH; y++)
+        for (int x = 0; x < MW; x++) {
+            if (!ink[y][x]) continue;
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++) {
+                    int ex = x + dx, ey = y + dy;
+                    if (ex >= 0 && ex < MW && ey >= 0 && ey < MH) edge[ey][ex] = 1;
+                }
+            if (y + 3 < MH && x + 1 < MW) shade[y + 3][x + 1] = 1;
+        }
+    for (int y = 0; y < MH; y++)
+        for (int x = 0; x < MW; x++) {
+            uint32_t color;
+            if (ink[y][x])
+                color = (y == 0 || !ink[y - 1][x]) ? 0xFFA45ACEu : 0xFF7321A5u;
+            else if (edge[y][x]) color = 0xFF42186Bu;
+            else if (shade[y][x]) color = 0xFF29216Bu;
+            else continue;
+            int px = X0 + x, py = Y0 + y;
+            if (px < X1 && py < Y1) fb[(size_t)py * width + margin + px] = color;
+        }
+}
 
 void issd_menu_render_team_flags(uint32_t *fb, int width, int height, int margin) {
     if (!fb) return;

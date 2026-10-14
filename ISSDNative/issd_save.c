@@ -677,6 +677,18 @@ static bool FavoritePath(char path[SAVE_PATH_MAX], bool create) {
     return true;
 }
 
+bool issd_save_career_path(char *out, size_t cap, bool create) {
+    if (!out || cap < 16) return false;
+    char root[SAVE_PATH_MAX], directory[SAVE_PATH_MAX];
+    GetSavesDir(root, sizeof(root));
+    if (!root[0]) return false;
+    int n = snprintf(directory, sizeof(directory), "%s/manager", root);
+    if (n < 0 || n > SAVE_PATH_MAX - 64) return false;
+    if (create && !MakeDirs(directory)) return false;
+    n = snprintf(out, cap, "%s/career.mgr", directory);
+    return n > 0 && (size_t)n < cap;
+}
+
 bool issd_save_match_favorite(const void *data, size_t size, const char *label) {
     s_error[0] = 0;
     char path[SAVE_PATH_MAX];

@@ -67,6 +67,10 @@ bool issd_save_continue_info(char *out_info, size_t max_len);
 bool issd_save_match_favorite(const void *data, size_t size, const char *label);
 bool issd_save_read_match_favorite(void **data, size_t *size);
 bool issd_save_match_favorite_info(char *out_info, size_t max_len);
+/* Where the manager-mode career file lives: <saves>/manager/career.mgr. The
+ * file has its own checksummed format (see issd_manager.h) and is independent
+ * of the cartridge snapshot saves. With create, the folder is made. */
+bool issd_save_career_path(char *out, size_t cap, bool create);
 const char *issd_save_error(void);
 bool issd_save_is_legacy(int slot_index);
 bool issd_load_from_slot_confirmed(int slot_index, bool allow_legacy);

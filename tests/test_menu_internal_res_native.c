@@ -173,9 +173,11 @@ int main(void) {
     issd_menu_confirm(); assert(g_issd_config.gameplay_bug_fixes);
     issd_menu_navigate_left(); assert(!g_issd_config.gameplay_bug_fixes);
     issd_menu_handle_click(30, 105, 256, 224); assert(g_issd_config.gameplay_bug_fixes);
+    /* Row 4 is Manager Mode and row 5 is Back; the list wraps at six. */
     issd_menu_navigate_down(); assert(g_overlay_menu.current_item == 4);
+    issd_menu_navigate_down(); assert(g_overlay_menu.current_item == 5);
     issd_menu_navigate_down(); assert(g_overlay_menu.current_item == 0);
-    issd_menu_navigate_up(); assert(g_overlay_menu.current_item == 4);
+    issd_menu_navigate_up(); assert(g_overlay_menu.current_item == 5);
     issd_menu_confirm();
     assert(g_overlay_menu.page == ISSD_MENU_PAGE_MAIN && g_overlay_menu.current_item == 17);
     issd_menu_confirm();

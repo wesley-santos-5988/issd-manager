@@ -27,7 +27,8 @@ typedef enum {
     ISSD_MENU_PAGE_TOUCH = 6,
     ISSD_MENU_PAGE_MATCH = 7,
     ISSD_MENU_PAGE_GRAPHICS = 8,
-    ISSD_MENU_PAGE_GRAPHICS_PREVIEW = 9
+    ISSD_MENU_PAGE_GRAPHICS_PREVIEW = 9,
+    ISSD_MENU_PAGE_MANAGER = 10
 } IssdMenuPage;
 
 typedef struct {
@@ -56,6 +57,10 @@ void issd_menu_set_save_context_callback(void (*callback)(void));
 void issd_menu_set_input_reset_callback(void (*callback)(void));
 void issd_menu_close(void);
 bool issd_menu_is_open(void);
+/* The Manager Mode page hands control back to Gameplay Tweaks, which opens it. */
+void issd_menu_return_from_manager(void);
+/* Open the overlay straight on Manager Mode (the main menu's Scenario button). */
+void issd_menu_open_manager(void);
 
 /* Internal intermediates apply for CRT and sharp scaling. */
 bool issd_menu_internal_res_applies(void);
@@ -125,6 +130,8 @@ void issd_menu_render_team_flags(uint32_t *fb, int width, int height,
 
 /* Sprite identity replacements clip to the cartridge viewport inside wide views. */
 bool issd_menu_team_flag_available(int team_id);
+/* Paints "MANAGER" over the main menu's Scenario button. */
+void issd_menu_render_main_menu_label(uint32_t *fb, int width, int height, int margin);
 void issd_menu_draw_team_identity(uint32_t *fb,int width,int height,int margin,
                                   int team,int x,int y,int room,int tall,bool flag);
 

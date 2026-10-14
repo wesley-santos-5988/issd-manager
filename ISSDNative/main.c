@@ -42,6 +42,8 @@
 #include "issd_stadium_scene.h"
 #include "issd_stadium_assets.h"
 #include "issd_menu.h"
+#include "issd_manager_menu.h"
+#include "issd_manager_link.h"
 #include "issd_password_ui.h"
 #include "issd_password.h"
 #include "widescreen.h"
@@ -278,6 +280,27 @@ static void IssdCaptureAppliedTeamNames(void) {
     }
 }
 
+/* Manager Mode asks the host for the cartridge images, the mods folder and
+ * names rather than linking against any of it; see issd_manager_menu.h. */
+static const char *g_manager_mods_dir = "mods";
+static const uint8_t *IssdManagerBaseRom(size_t *size) {
+    if (size) *size = g_rom_size;
+    return g_base_rom_data;
+}
+static const uint8_t *IssdManagerAppliedRom(size_t *size) {
+    if (size) *size = g_rom_size;
+    return g_rom_data;
+}
+static const char *IssdManagerModsDir(void) { return g_manager_mods_dir; }
+static bool IssdManagerToMainMenu(void) {
+    if (issd_match_at_main_menu()) return true;
+    return issd_match_can_back_main() && issd_match_back_main();
+}
+static const char *IssdManagerTeamName(int team) {
+    if (team < 0 || team >= ISSD_ROM_TEAMS) return NULL;
+    return g_applied_team_names[team][0] ? g_applied_team_names[team] : issd_mod_rom_team_name(team);
+}
+
 static void IssdGameplayNativeBlock(CpuState *cpu, uint32_t pc);
 static void IssdConfigureGameplayHooks(void);
 static void IssdResetMenuInput(void);
@@ -366,6 +389,7 @@ static bool IssdRequestMainMenu(void) {
 static bool IssdMatchAction(const char *name) {
     if (!strcmp(name, "restart-match")) return issd_match_restart();
     if (!strcmp(name, "back-main")) return issd_match_back_main();
+    if (!strcmp(name, "manager-play")) return issd_manager_menu_play_now();
     if (!strcmp(name, "rematch")) return issd_match_rematch();
     if (!strcmp(name, "mark-drill")) return issd_match_mark_drill(g_frame_healthy);
     if (!strcmp(name, "restart-drill")) return issd_match_restart_drill();
@@ -381,7 +405,7 @@ static void IssdParseMatchAction(const char *value) {
     if (value[0] < '0' || value[0] > '9' || frame > UINT32_MAX || *end != ':' || g_match_action_count >= 16)
         Die("Invalid --match-action; expected FRAME:ACTION (maximum 16)");
     const char *name = end + 1;
-    const char *names[] = {"restart-match","back-main","rematch","mark-drill","restart-drill","save-favorite","play-favorite","start-rules"};
+    const char *names[] = {"restart-match","back-main","manager-play","rematch","mark-drill","restart-drill","save-favorite","play-favorite","start-rules"};
     bool valid = false;
     for (unsigned i = 0; i < sizeof names/sizeof names[0]; ++i) if (!strcmp(name,names[i])) valid = true;
     if (!valid) Die("Unknown --match-action action");
@@ -2147,6 +2171,20 @@ int main(int argc, char **argv) {
         }
     }
     issd_menu_init();
+    {
+        /* The folder the packs were just scanned from is where the career
+         * pack must be written for the next boot to find it. */
+        g_manager_mods_dir = mods_dir;
+        const IssdManagerHost manager_host = {
+            .base_rom = IssdManagerBaseRom,
+            .applied_rom = IssdManagerAppliedRom,
+            .mods_dir = IssdManagerModsDir,
+            .team_name = IssdManagerTeamName,
+            .to_main_menu = IssdManagerToMainMenu,
+            .career_path = issd_save_career_path,
+        };
+        issd_manager_menu_set_host(&manager_host);
+    }
     issd_controls_set_key_label(IssdKeyLabel);
     issd_menu_set_input_reset_callback(IssdResetMenuInput);
     issd_menu_set_save_context_callback(IssdRefreshSaveContext);
@@ -2645,6 +2683,16 @@ int main(int argc, char **argv) {
                         g_main_menu_return_frames % 60 < 10)
                         pads[0] = 1u << 3;
                 }
+                /* Manager Mode: the Scenario button opens it, and a match it
+                 * started walks the original menus on its own. */
+                if (!g_main_menu_returning && issd_link_before_frame(g_ram, pads)) {
+                    memset(pads, 0, sizeof pads);
+                    fprintf(stderr, "[Manager] opened from the Scenario button\n");
+                    issd_menu_open_manager();
+                    issd_input_block_held();
+                    IssdBlockKeyboard();
+                    g_pad1_state = 0;
+                }
                 uint64_t _rf_t0 = SDL_GetPerformanceCounter();
                 g_frame_healthy = false;
                 issd_stadium_trace_set_frame(frame_count);
@@ -2671,6 +2719,10 @@ int main(int argc, char **argv) {
                 framebuffer_width=cur_render_w;
                 g_frame_healthy = g_frame_healthy && !g_watchdog_tripped &&
                                   g_cpu.S == 0x01AF && !g_ram[0x3c] && !g_ram[0x3d];
+                if (g_frame_healthy) {
+                    issd_link_after_frame(g_ram);
+                    issd_manager_menu_collect_match();
+                }
                 int match_capture = issd_match_tick(g_frame_healthy);
                 if (g_main_menu_returning) {
                     g_main_menu_return_frames++;
@@ -2734,6 +2786,9 @@ int main(int argc, char **argv) {
                 issd_menu_render_team_flags(g_pixel_buffer, cur_render_w,
                                             cur_render_h,
                                             g_ws_active ? g_ws_extra : 0);
+                issd_menu_render_main_menu_label(g_pixel_buffer, cur_render_w,
+                                                 cur_render_h,
+                                                 g_ws_active ? g_ws_extra : 0);
                 if (g_main_menu_returning) {
                     /* The destination is the native menu; show progress while
                      * original startup screens are being advanced internally. */

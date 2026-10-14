@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Add the league logic for a Manager mode (`issd_manager`): a drawn 12-team
+  double round-robin, table, automatic results for other matches, basic
+  swap/free-agent transfers, checksummed career saves and a roster-pack
+  export; see `docs/MANAGER_MODE.md`.
+- Add the Manager Mode overlay page (Gameplay Tweaks -> Manager Mode): new
+  league from the cartridge squads, simulate rounds, table, calendar, squad,
+  swaps with clubs, free agents, a checksummed career file under the saves
+  folder, and *Apply squads & restart* through the mod loader.
+- Play your Manager fixtures in the game (*Play my match* walks the Open Game
+  menus, sets the league clubs and records the final score), open Manager Mode
+  from the main menu's Scenario button, and show "MANAGER" on that button.
+
 ## 0.5.0-beta.3 — 2026-10-10
 
 - Replace misleading fixed touch action names with native A/B/X/Y letters.
